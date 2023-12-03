@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func fileToLines(path string) ([]string, error) {
+func FileToLines(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err

@@ -1,29 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/viduranga/AdventOfCode/2023/util"
 )
-
-func readFile(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	return lines, scanner.Err()
-}
 
 func findNumbersWithLiterals(data []string) ([]int, error) {
 	literals := []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine"}
@@ -75,17 +60,9 @@ func findNumbersWithLiterals(data []string) ([]int, error) {
 	return result, nil
 }
 
-func sum(numbers []int) int {
-	var result int
-	for _, number := range numbers {
-		result += number
-	}
-	return result
-}
-
 func main() {
 	path := os.Args[1]
-	lines, err := readFile(path)
+	lines, err := util.FileToLines(path)
 	if err != nil {
 		panic(err)
 	}
@@ -95,5 +72,5 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(sum(numbers))
+	fmt.Println(util.ArraySum(numbers))
 }

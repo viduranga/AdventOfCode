@@ -1,4 +1,4 @@
-package aoc_2023_1
+package main
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/viduranga/AdventOfCode/util"
+	"github.com/viduranga/AdventOfCode/2023/util"
 )
 
 func findNumbers(data []string) ([]int, error) {
@@ -38,7 +38,7 @@ func findNumbers(data []string) ([]int, error) {
 
 func main() {
 	path := os.Args[1]
-	lines, err := util.FileToArray(path)
+	lines, err := util.FileToLines(path)
 	if err != nil {
 		panic(err)
 	}
@@ -48,5 +48,5 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(util.arraySum(numbers))
+	fmt.Println(util.ArraySum(numbers))
 }
