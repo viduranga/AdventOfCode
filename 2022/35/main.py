@@ -1,0 +1,24 @@
+from dataclasses import dataclass
+
+import numpy as np
+
+input_file = open('input.txt', 'r')
+
+
+grid = np.full((50, 50, 50), '.')
+
+cubes = []
+
+for line in input_file.readlines():
+    x, y, z = [int(val) for val in line.strip().split(',')]
+    grid[x, y, z] = '#'
+    cubes.append((x, y, z))
+
+side_count = 0
+for x, y, z in cubes:
+    for a_x, a_y, a_z in [(x-1, y, z), (x+1, y, z), (x, y-1, z), (x, y+1, z), (x, y, z-1), (x, y, z+1)]:
+        if grid[a_x, a_y, a_z] == '.':
+            side_count += 1
+
+print(side_count)
+
