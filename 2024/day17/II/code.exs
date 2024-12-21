@@ -59,54 +59,91 @@ defmodule M do
     end
   end
 
-  def step(registers, pointer, program, size, cache) do
-    if Map.has_key?(cache, {registers, pointer}) do
-      {cache, Map.get(cache, {registers, pointer})}
+  def step(registers, pointer, program, size) do
+    if pointer >= size do
+      []
     else
-      if pointer == size do
-        {Map.put(cache, {registers, pointer}, []), []}
+      {op, arg} = Enum.at(program, pointer)
+      {registers, pointer, out} = evaluate(op, arg, pointer, registers)
+      next_out = step(registers, pointer, program, size)
+
+      if out != nil do
+        [out | next_out]
       else
-        {op, arg} = Enum.at(program, pointer)
-        {new_registers, new_pointer, out} = evaluate(op, arg, pointer, registers)
-        {cache, next_out} = step(new_registers, new_pointer, program, size, cache)
-
-        this_out =
-          if out != nil do
-            [out | next_out]
-          else
-            next_out
-          end
-
-        cache = Map.put(cache, {registers, pointer}, this_out)
-        {cache, this_out}
+        next_out
       end
     end
   end
 
-  def try_a(a, instructions, size, cache, program) do
-    {cache, out} = step(%{:a => a, :b => 0, :c => 0}, 0, instructions, size, cache)
+  def find_bounds(program, pointer, min_a, max_a, instructions) do
+    # I want to use 1000 but it breaks and returns a bit larger value. 
+    # Somehow, the correct value slips between the steps 
+    step = div(max_a - min_a, 10000) |> max(1)
+    max_a = (rem(max_a, step) == 0 && max_a) || max_a + step
 
-    if out == program do
-      a
+    expeceted_val_at_pointer = Enum.at(program, pointer)
+
+    instructions_len = Enum.count(instructions)
+
+    for(
+      a <- min_a..max_a//step,
+      do: {M.step(%{:a => a, :b => 0, :c => 0}, 0, instructions, instructions_len), a}
+    )
+    |> Enum.filter(fn {out, _} -> Enum.count(out) == Enum.count(program) end)
+    |> Enum.map_reduce({0, nil}, fn {out, a}, {group, prev} ->
+      val_at_pointer = Enum.at(out, pointer)
+
+      case prev do
+        x when x in [nil, val_at_pointer] -> {{out, a, group}, {group, val_at_pointer}}
+        _ -> {{out, a, group + 1}, {group + 1, val_at_pointer}}
+      end
+    end)
+    |> elem(0)
+    |> Enum.filter(fn {out, _, _} ->
+      val_at_pointer = Enum.at(out, pointer)
+
+      val_at_pointer == expeceted_val_at_pointer
+    end)
+    |> Enum.group_by(fn {_, _, group} -> group end)
+    |> Enum.map(fn {_, outs} ->
+      as = Enum.map(outs, fn {_, a, _} -> a end)
+
+      {Enum.min(as), Enum.max(as)}
+    end)
+  end
+
+  def scan_a(program, pointer, instructions, min, max) do
+    if pointer == -1 and min == max do
+      instructions_len = Enum.count(instructions)
+      out = step(%{:a => min, :b => 0, :c => 0}, 0, instructions, instructions_len)
+
+      if program == out do
+        min
+      else
+        :infinity
+      end
     else
-      try_a(a + 1, instructions, size, cache, program)
+      min_max_groups = find_bounds(program, pointer, min, max, instructions)
+
+      res =
+        for(
+          {min, max} <- min_max_groups,
+          do: scan_a(program, pointer - 1, instructions, min, max)
+        )
+
+      case res do
+        [] -> :infinity
+        _ -> Enum.min(res)
+      end
     end
   end
 end
 
-[registers, program] =
+[_, program] =
   System.argv()
   |> File.read!()
   |> String.split("\n\n", trim: true)
   |> Enum.map(&String.trim/1)
-
-registers =
-  Regex.named_captures(
-    ~r/^Register A: (?<a>\d+)\nRegister B: (?<b>\d+)\nRegister C: (?<c>\d+)$/,
-    registers
-  )
-  |> Enum.map(fn {key, val} -> {String.to_atom(key), String.to_integer(val)} end)
-  |> Enum.into(%{})
 
 program =
   String.split(program, " ", trim: true)
@@ -133,14 +170,15 @@ instructions =
     {op, arg}
   end)
 
-{_, out} =
-  M.step(
-    Map.put(registers, :a, 10_000_000_000_0000),
-    0,
-    instructions,
-    Enum.count(instructions),
-    %{}
-  )
+min = 1
+max = 1_000_000_000_000_000
 
-IO.inspect(out)
-IO.inspect(M.try_a(100_000_000_000_000, instructions, Enum.count(instructions), %{}, program))
+IO.inspect(
+  M.scan_a(
+    program,
+    Enum.count(program) - 1,
+    instructions,
+    min,
+    max
+  )
+)
