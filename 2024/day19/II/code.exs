@@ -1,39 +1,29 @@
 defmodule M do
-  def cached_remove_pattern(towel, patterns, cache) do
+  def remove_patterns(towel, patterns, cache) do
     if Map.has_key?(cache, towel) do
-      {Map.get(cache, towel), cache}
+      {cache[towel], cache}
     else
-      res = remove_patterns(towel, patterns)
-      cache = Map.put(cache, towel, res)
-      {res, cache}
-    end
-  end
+      {hits, cache} =
+        Enum.map_reduce(patterns, cache, fn pattern, cache ->
+          case Regex.named_captures(pattern, towel) do
+            %{"rest" => rest} ->
+              if rest == "" do
+                {1, cache}
+              else
+                remove_patterns(rest, patterns, cache)
+              end
 
-  def remove_patterns(towel, patterns) do
-    for pattern <- patterns do
-      case Regex.named_captures(pattern, towel) do
-        %{"rest" => rest} ->
-          if rest == "" do
-            [[pattern]]
-          else
-            remove_patterns(rest, patterns)
-            |> Enum.map(fn
-              [] ->
-                []
-
-              hits ->
-                [pattern | hits]
-            end)
+            nil ->
+              {0, cache}
           end
+        end)
 
-        nil ->
-          [[]]
-      end
+      hits = Enum.sum(hits)
+
+      cache = Map.put(cache, towel, hits)
+
+      {hits, cache}
     end
-    |> Stream.flat_map(& &1)
-    |> Enum.to_list()
-    |> Enum.filter(&(&1 != []))
-    |> Enum.uniq()
   end
 end
 
@@ -51,15 +41,9 @@ patterns =
 
 towels = String.split(towels, "\n", trim: true)
 
-options =
-  Enum.map(towels, fn towel ->
-    M.remove_patterns(towel, Map.keys(patterns))
-    |> Enum.map(fn path ->
-      Enum.map(path, fn pattern ->
-        patterns[pattern]
-      end)
-    end)
-    |> Enum.count()
+{options, _} =
+  Enum.map_reduce(towels, %{}, fn towel, cache ->
+    M.remove_patterns(towel, Map.keys(patterns), cache)
   end)
 
 IO.inspect(options |> Enum.sum())
